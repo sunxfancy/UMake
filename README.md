@@ -9,5 +9,53 @@
 5. 自动对一系列可能情况生成target，避免模式匹配中匹配不到的问题
 6. 自动确保cd到的目录，目标文件生成目录均存在
 
-定义文法：
+新定义的语法：
+target-%(ARRAY)-%(CASE2): %(ARRAY)-%(CASE2)   这种可以一次性定义一组target
 
+<FO:file/path> 可以用来标记一个输出文件，这样系统会自动加入两个检测代码，首先确保输出目录存在，避免目录错误，其次会在执行后进行检测，确保输出文件真的存在
+<DO:...> 目录输出
+<FI:...> 文件输入
+<DI:...> 目录输入
+
+示例文法：
+
+```makefile
+help:     ## Show this help.
+.PRECIOUS: hotlist/% perf/%
+
+build/pgo-%(LTO): profdata $(TMP_PATH)/source/   ## Build PGO Build with FullLTO
+	mkdir -p $C/bin && touch $C/bin/clang
+
+build/pgo-%(LTO)-%(FDO): hotlist/pgo-%(LTO) $(TMP_PATH)/source/  ## Build PGO-LTO FDOIPRA versions
+	mkdir -p $C/bin && touch $C/bin/clang 
+
+build/pgo-%(LTO)-%(FDO).%(VAR): build/pgo-%(LTO)-%(FDO)  ## Build FDOIPRA variant versions
+	touch $C/bin/clang$V
+
+build/instrumented: $(TMP_PATH)/source/   ## Build instrumented binary
+	mkdir -p $C/bin && touch $C/bin/clang
+
+source:  					## Download source code
+	wget google.com -O <FO:source.dir/1.zip>
+	wget github.com -O <FO:source.dir/2.zip>
+
+$(TMP_PATH)/source/: source   
+	cd $(TMP_PATH)
+	mkdir -p  <DO:$(TMP_PATH)/source> && cat <FI:$(BUILD_PATH)/source.dir/1.zip> > $(TMP_PATH)/source/1.c
+
+hotlist/%: perf/%  			## Generate hotlist
+	mkdir -p hotlist
+	cat <FI:$(BUILD_PATH)/$< > | awk '{print "hotlist gen from:\n $$1"}' > <FO:$@>
+
+profdata: build/instrumented  ## Generate profdata
+	echo "prof data gen" > <FO:$@>
+
+perf/%: build/%              ## Run perf record
+	mkdir -p perf
+	cat <FI:$C/bin/clang$V> > <FO:$@>
+
+bench/%: build/%             ## Run perf stat
+	mkdir -p bench
+	cat <FI:$C/bin/clang$V> > <FO:$@>
+  
+```
