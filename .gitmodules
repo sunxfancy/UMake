@@ -1,0 +1,3 @@
+[submodule "third-party/zeroerr"]
+	path = third-party/zeroerr
+	url = git@github.com:sunxfancy/zeroerr.git
