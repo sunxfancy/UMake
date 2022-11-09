@@ -93,12 +93,16 @@ struct ShellInfo {
         cmd = std::regex_replace(cmd, fo_regex, "$1");
         cmd = std::regex_replace(cmd, di_regex, "$1");
         cmd = std::regex_replace(cmd, do_regex, "$1");
+
+        static const std::regex update_pre("$<([2-9])");
+        cmd = std::regex_replace(cmd, update_pre, "$(word $1,$^)");
+
         return cmd;
     }
 };
 
 
-void Rule::gen_body(std::stringstream& ss, bool dd) {
+void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
     auto print = zeroerr::getStderrPrinter();
     ss << replace_var(target[0]) << (multiple? "&": "") << ":";
     
@@ -143,7 +147,13 @@ void Rule::gen_body(std::stringstream& ss, bool dd) {
             s << std::endl << "\t$(call make_sure_parent_dir_exist," << name << ")";
         for (auto name : info.output_dirs)
             s << std::endl << "\t$(call make_sure_parent_dir_exist," << name << ")";
-        s << cmd;
+        if (!debug) s << cmd;
+        else { // generate debug commands
+            for (auto name : info.output_files)
+                s << std::endl << "\ttouch " << name;
+            for (auto name : info.output_dirs)
+                s << std::endl << "\tmkdir " << name;
+        }
         for (auto name : info.output_files)
             s << std::endl << "\t$(call check_file_exist," << name << ")";
         for (auto name : info.output_dirs)
@@ -157,7 +167,7 @@ void Rule::gen_body(std::stringstream& ss, bool dd) {
 }
 
 
-std::string Rule::gen() {
+std::string Rule::gen(bool debug) {
     auto print = zeroerr::getStderrPrinter();
     CHECK(target.size() == 1);
     std::stringstream ss;
@@ -170,7 +180,7 @@ std::string Rule::gen() {
     if (vars.size() > 0) {
         ss << "define " << "GENERATE_" << (++i) << std::endl;
     }
-    gen_body(ss, vars.size() > 0);
+    gen_body(ss, vars.size() > 0, debug);
     if (vars.size() > 0) {
         ss << "endef" << std::endl;
 

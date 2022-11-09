@@ -30,19 +30,22 @@ int main(int argc, char **argv)
 {
     std::cout << "umake " << argv[1] << std::endl;
     auto [header, src, library] = load_file(argv[1]);
-    std::cout << src << std::endl;
 
     umake::parser parser;
     parser.Parse(src);
 
-    
-
     std::ofstream file(argv[1]);
     file << header << src << library << std::endl;
 
+    file << "ifeq ($(DEBUG_MAKEFILE),1)" << std::endl;
     for (auto rule : parser.rules) {
         file << rule->gen() << std::endl;
     }
+    file << "else" << std::endl;
+    for (auto rule : parser.rules) {
+        file << rule->gen(true) << std::endl;
+    }
+    file << "endif" << std::endl;
     // output generated parts
     file << std::endl << "endif" << std::endl;
     return 0;

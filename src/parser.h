@@ -18,8 +18,8 @@ struct Rule {
     Rule(StringList* target, StringList* dependencies, StringList* order_only_dependencies, bool multiple, StringList* commands);
     ~Rule();
 
-    std::string gen();
-    void gen_body(std::stringstream& ss, bool dd = false);
+    std::string gen(bool debug = false);
+    void gen_body(std::stringstream& ss, bool dd = false, bool debug = false);
     // RuleInfo* info;
 };
 
