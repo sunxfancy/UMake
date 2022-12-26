@@ -36,7 +36,6 @@ ifeq (0,1) # The following is the editable source code
 ## the Makefile.
 ## ----------------------------------------------------------------------
 
-help:     ## Show this help.
 .PRECIOUS: hotlist/% perf/%
 
 build/pgo-%(LTO): profdata $(TMP_PATH)/source/   ## Build PGO Build with FullLTO
@@ -79,9 +78,6 @@ endif # End of the editable source code
 #-------------------- Editable Library Code --------------------#
 
 
-.ONESHELL: 
-.NOTINTERMEDIATE: 
-
 ifeq ($(BUILD_PATH),)
 
 PWD := $(shell pwd)
@@ -89,6 +85,7 @@ MAKEFILE_PATH := $(PWD)/Makefile
 BUILD_PATH := $(PWD)/build
 TMP_PATH := $(PWD)/tmp
 COLORFUL := 1
+DEBUG := 1
 
 ifeq ($(COLORFUL),1)
 RED := \033[0;31m
@@ -100,7 +97,6 @@ CYAN := \033[0;36m
 WHITE := \033[0;37m
 NC := \033[0m
 DIM := \033[2m
-
 endif
 
 
@@ -108,15 +104,29 @@ export
 
 %: 
 	@mkdir -p $(BUILD_PATH)
-	$(MAKE) -C $(BUILD_PATH) -f $(MAKEFILE_PATH) $@ 
+	@$(MAKE) -C $(BUILD_PATH) -f $(MAKEFILE_PATH) $@ 
 
-help:
+help:  					  ## Show this help
 	@sed -ne 's/^## //p' $(MAKEFILE_LIST)
 	@grep -E -h '\s##\s' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(CYAN)  %-36s$(NC) %s\n", $$1, $$2}'
 
+gen:
+	xmake run -w template umake Makefile
+
+clean:					  ## Clean all
+	rm -rf $(BUILD_PATH) $(TMP_PATH)
+
 else
 
-DEFAULT_ACTION = echo "$A target $T on C = $C V = $V" && mkdir -p $A && touch $@
+
+.ONESHELL: 
+.NOTINTERMEDIATE: 
+.SILENT: 
+
+DEFAULT_PREACTION = @echo -e "$(CYAN)[umake] $@$(NC)"; \
+	if [ $(DEBUG) -eq 1 ]; then echo -e "$(DIM)$(MAKEFILE_PATH)$(NC)"; fi
+DEFAULT_ACTION = @echo "$A target $T: C = $C V = $V" && mkdir -p $A && touch $@
+
 
 %: A = $(patsubst %/,%,$(dir $@))
 %: T = $(notdir $@)
@@ -168,32 +178,27 @@ additional_original_flags =
 
 
 define check_file_exist
-	if [ ! -f $1 ]; then echo "Error: $1 does not exist"; exit 1; fi
+	@if [ ! -f $1 ]; then echo "Error: $1 does not exist"; exit 1; fi
 endef 
 
 define check_dir_exist
-	if [ ! -d $1 ]; then echo "Error: $1 does not exist"; exit 1; fi
+	@if [ ! -d $1 ]; then echo "Error: $1 does not exist"; exit 1; fi
 endef
 
 define make_sure_parent_dir_exist
-	mkdir -p $(abspath $1/..)
+	@mkdir -p $(abspath $1/..)
 endef 
 
 
-
-.PRECIOUS: hotlist/% perf/%
-
 #-------------------- DO NOT EDIT BELOW THIS LINE --------------------#
 
-help:
-
-
+ifeq ($(DEBUG),1)
 .PRECIOUS: hotlist/% perf/%
 
 
 define GENERATE_1
 build/pgo-$(LTO_IT): profdata $(TMP_PATH)/source/.complete
-	mkdir -p $$C/bin && touch $$C/bin/clang
+	$$(DEFAULT_PREACTION)
 	$$(DEFAULT_ACTION)
 
 endef
@@ -201,7 +206,7 @@ $(foreach LTO_IT, $(LTO),$(eval $(call GENERATE_1)))
 
 define GENERATE_2
 build/pgo-$(LTO_IT)-$(FDO_IT): hotlist/pgo-$(LTO_IT) $(TMP_PATH)/source/.complete
-	mkdir -p $$C/bin && touch $$C/bin/clang 
+	$$(DEFAULT_PREACTION)
 	$$(DEFAULT_ACTION)
 
 endef
@@ -209,18 +214,113 @@ $(foreach LTO_IT, $(LTO),$(foreach FDO_IT, $(FDO),$(eval $(call GENERATE_2))))
 
 define GENERATE_3
 build/pgo-$(LTO_IT)-$(FDO_IT).$(VAR_IT): build/pgo-$(LTO_IT)-$(FDO_IT)
-	touch $$C/bin/clang$$V
+	$$(DEFAULT_PREACTION)
 	$$(DEFAULT_ACTION)
 
 endef
 $(foreach LTO_IT, $(LTO),$(foreach FDO_IT, $(FDO),$(foreach VAR_IT, $(VAR),$(eval $(call GENERATE_3)))))
 
 build/instrumented: $(TMP_PATH)/source/.complete
+	$(DEFAULT_PREACTION)
+	$(DEFAULT_ACTION)
+
+
+source:
+	$(DEFAULT_PREACTION)
+	$(call make_sure_parent_dir_exist,source.dir/1.zip)
+	$(call make_sure_parent_dir_exist,source.dir/2.zip)
+	touch source.dir/1.zip
+	touch source.dir/2.zip
+	$(call check_file_exist,source.dir/1.zip)
+	$(call check_file_exist,source.dir/2.zip)
+	$(DEFAULT_ACTION)
+
+
+$(TMP_PATH)/source/.complete: source
+	$(DEFAULT_PREACTION)
+	mkdir -p $(TMP_PATH)
+	cd $(TMP_PATH)
+	$(call check_file_exist,$(BUILD_PATH)/source.dir/1.zip)
+	$(call make_sure_parent_dir_exist,$(TMP_PATH)/source)
+	mkdir -p $(TMP_PATH)/source
+	$(call check_dir_exist,$(TMP_PATH)/source)
+	$(DEFAULT_ACTION)
+
+
+hotlist/%: perf/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$(BUILD_PATH)/$< )
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+profdata: build/instrumented
+	$(DEFAULT_PREACTION)
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+perf/%: build/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$C/bin/clang$V)
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+bench/%: build/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$C/bin/clang$V)
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+else
+.PRECIOUS: hotlist/% perf/%
+
+
+define GENERATE_4
+build/pgo-$(LTO_IT): profdata $(TMP_PATH)/source/.complete
+	$$(DEFAULT_PREACTION)
+	mkdir -p $$C/bin && touch $$C/bin/clang
+	$$(DEFAULT_ACTION)
+
+endef
+$(foreach LTO_IT, $(LTO),$(eval $(call GENERATE_4)))
+
+define GENERATE_5
+build/pgo-$(LTO_IT)-$(FDO_IT): hotlist/pgo-$(LTO_IT) $(TMP_PATH)/source/.complete
+	$$(DEFAULT_PREACTION)
+	mkdir -p $$C/bin && touch $$C/bin/clang 
+	$$(DEFAULT_ACTION)
+
+endef
+$(foreach LTO_IT, $(LTO),$(foreach FDO_IT, $(FDO),$(eval $(call GENERATE_5))))
+
+define GENERATE_6
+build/pgo-$(LTO_IT)-$(FDO_IT).$(VAR_IT): build/pgo-$(LTO_IT)-$(FDO_IT)
+	$$(DEFAULT_PREACTION)
+	touch $$C/bin/clang$$V
+	$$(DEFAULT_ACTION)
+
+endef
+$(foreach LTO_IT, $(LTO),$(foreach FDO_IT, $(FDO),$(foreach VAR_IT, $(VAR),$(eval $(call GENERATE_6)))))
+
+build/instrumented: $(TMP_PATH)/source/.complete
+	$(DEFAULT_PREACTION)
 	mkdir -p $C/bin && touch $C/bin/clang
 	$(DEFAULT_ACTION)
 
 
 source:
+	$(DEFAULT_PREACTION)
 	$(call make_sure_parent_dir_exist,source.dir/1.zip)
 	$(call make_sure_parent_dir_exist,source.dir/2.zip)
 	wget google.com -O source.dir/1.zip
@@ -231,6 +331,7 @@ source:
 
 
 $(TMP_PATH)/source/.complete: source
+	$(DEFAULT_PREACTION)
 	mkdir -p $(TMP_PATH)
 	cd $(TMP_PATH)
 	$(call check_file_exist,$(BUILD_PATH)/source.dir/1.zip)
@@ -241,6 +342,7 @@ $(TMP_PATH)/source/.complete: source
 
 
 hotlist/%: perf/%
+	$(DEFAULT_PREACTION)
 	$(call check_file_exist,$(BUILD_PATH)/$< )
 	$(call make_sure_parent_dir_exist,$@)
 	mkdir -p hotlist
@@ -250,6 +352,7 @@ hotlist/%: perf/%
 
 
 profdata: build/instrumented
+	$(DEFAULT_PREACTION)
 	$(call make_sure_parent_dir_exist,$@)
 	echo "prof data gen" > $@
 	$(call check_file_exist,$@)
@@ -257,6 +360,7 @@ profdata: build/instrumented
 
 
 perf/%: build/%
+	$(DEFAULT_PREACTION)
 	$(call check_file_exist,$C/bin/clang$V)
 	$(call make_sure_parent_dir_exist,$@)
 	mkdir -p perf
@@ -266,6 +370,7 @@ perf/%: build/%
 
 
 bench/%: build/%
+	$(DEFAULT_PREACTION)
 	$(call check_file_exist,$C/bin/clang$V)
 	$(call make_sure_parent_dir_exist,$@)
 	mkdir -p bench
@@ -274,5 +379,6 @@ bench/%: build/%
 	$(DEFAULT_ACTION)
 
 
+endif
 
 endif

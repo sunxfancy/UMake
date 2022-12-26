@@ -36,8 +36,6 @@ Rule::Rule(StringList* target, StringList* dependencies, StringList* order_only_
         delete commands;
     }
     this->multiple = multiple;
-
-    // info = new RuleInfo();
 }
 
 
@@ -101,6 +99,37 @@ struct ShellInfo {
     }
 };
 
+std::string trim(std::string s) {
+    int p = s.find_first_not_of(" \t\v\n\r");
+    int q = s.find_last_not_of(" \t\v\n\r");
+    if (p == std::string::npos) {
+        return "";
+    }
+    return s.substr(p, q-p+1);
+}
+
+std::vector<std::string> split(std::string s) {
+    std::vector<std::string> result;
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, '\n')) {
+        result.push_back(trim(item));
+    }
+    return result;
+}
+
+std::string filter_force_commands(std::string cmd) {
+    std::vector<std::string> cmds = split(cmd);
+
+    std::stringstream ss;
+    for (auto cmd : cmds) {
+        if (cmd[0] == '!') {
+            ss << cmd.substr(1);
+        }
+    }
+    return ss.str();
+}
+
 
 void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
     auto print = zeroerr::getStderrPrinter();
@@ -120,10 +149,6 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
     for (auto cmd : commands) {
         ShellInfo info;
         cmd = info.get_input_output(cmd);
-        // print(info.input_dirs);
-        // print(info.output_dirs);
-        // print(info.input_files);
-        // print(info.output_files);
         
         std::string first_line_mkdir;
         std::string first_line_cd;
@@ -137,6 +162,7 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
         }
 
         std::stringstream s;
+        s << "\n\t$(DEFAULT_PREACTION)";
         s << first_line_mkdir;
         s << first_line_cd;
         for (auto name : info.input_files)
@@ -148,11 +174,12 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
         for (auto name : info.output_dirs)
             s << std::endl << "\t$(call make_sure_parent_dir_exist," << name << ")";
         if (!debug) s << cmd;
-        else { // generate debug commands
+        else {
+            s << filter_force_commands(cmd);
             for (auto name : info.output_files)
                 s << std::endl << "\ttouch " << name;
             for (auto name : info.output_dirs)
-                s << std::endl << "\tmkdir " << name;
+                s << std::endl << "\tmkdir -p " << name;
         }
         for (auto name : info.output_files)
             s << std::endl << "\t$(call check_file_exist," << name << ")";
@@ -173,15 +200,14 @@ std::string Rule::gen(bool debug) {
     std::stringstream ss;
     
     auto vars = find_var(target[0]);
-    // print(target[0]);
-    // print(vars);
 
     static int i = 0;
-    if (vars.size() > 0) {
+    bool use_loop = vars.size() > 0;
+    if (use_loop) {
         ss << "define " << "GENERATE_" << (++i) << std::endl;
     }
-    gen_body(ss, vars.size() > 0, debug);
-    if (vars.size() > 0) {
+    gen_body(ss, use_loop, debug);
+    if (use_loop) {
         ss << "endef" << std::endl;
 
         for (auto var : vars) {
@@ -198,11 +224,9 @@ std::string Rule::gen(bool debug) {
 }
 
 void parser::Parse(std::string input) {
-    dbg("Parsing input");
     yylex_init(&lexer);
     umake_scan_string(input.c_str(), this);
     yyparse(lexer, this);
-    dbg(this->rules);
 }
 
 } // namespace umake

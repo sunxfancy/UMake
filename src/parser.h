@@ -6,8 +6,6 @@
 namespace umake
 {
 
-struct RuleInfo;
-
 struct Rule {
     typedef std::vector<std::string> StringList;
     bool multiple;
@@ -20,10 +18,7 @@ struct Rule {
 
     std::string gen(bool debug = false);
     void gen_body(std::stringstream& ss, bool dd = false, bool debug = false);
-    // RuleInfo* info;
 };
-
-
 struct parser
 {
     void* lexer;
