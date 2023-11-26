@@ -1,5 +1,8 @@
 
 %option reentrant noyywrap nounput
+%option nounistd
+%option never-interactive
+%option yylineno
 
 %{
 #include <cstdint>
@@ -16,14 +19,14 @@ ID [a-zA-Z0-9\-/_%$()\.]*
 %%
 
 "#".*               ; 
-"\n"                return '\n'; 
+\n|\r\n             return '\n'; 
 {ID}                SAVE_TOKEN; return ID;
+\"([^\"]|\\.)+\"    SAVE_TOKEN; return STRING;
 "<FI"[^>\n>]*">"    SAVE_TOKEN; return FILE_IN;
 "<FO"[^>\n>]*">"    SAVE_TOKEN; return FILE_OUT;
 "<DI"[^>\n>]*">"    SAVE_TOKEN; return DIR_IN;
 "<DO"[^>\n>]*">"    SAVE_TOKEN; return DIR_OUT;
-
-[&|:]                 return *yytext;;
+[=&|:\[\],]         return *yytext;
 \n\t.+              SAVE_TOKEN; return SHELL;
 
 [ \t\v\r\f]         ;

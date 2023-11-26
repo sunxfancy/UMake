@@ -6,9 +6,8 @@
 #include <string>
 #include <regex>
 #include "bison.tab.hpp"
-#include "zeroerr.h"
 
-extern void yylex_init(void** scanner);
+extern int yylex_init(void** scanner);
 extern void umake_scan_string(const char* str, struct umake::parser* P);
 
 namespace umake
@@ -20,7 +19,7 @@ Rule::~Rule() {
 }
 
 
-Rule::Rule(StringList* target, StringList* dependencies, StringList* order_only_dependencies, bool multiple, StringList* commands) {
+Rule::Rule(StringList* target, StringList* dependencies, StringList* order_only_dependencies, bool multiple, StringList* commands, StringMap* attrs) {
     this->target = *target;
     delete target;
     if (dependencies != nullptr) {
@@ -36,6 +35,10 @@ Rule::Rule(StringList* target, StringList* dependencies, StringList* order_only_
         delete commands;
     }
     this->multiple = multiple;
+    if (attrs != nullptr) {
+        this->attrs = *attrs;
+        delete attrs;
+    }
 }
 
 
@@ -44,7 +47,7 @@ static std::vector<std::string> find_var(std::string target) {
     std::smatch pieces_match;
     static const std::regex var_regex("%\\(([a-zA-Z0-9\-_]+)\\)");
     while (std::regex_search(target, pieces_match, var_regex)) {
-        CHECK(pieces_match.size() == 2);
+        // CHECK(pieces_match.size() == 2);
         vars.push_back(pieces_match[1].str());
         target = pieces_match.suffix();
     }
@@ -74,7 +77,6 @@ struct ShellInfo {
     void append(std::vector<std::string>& buf, const std::regex& re, std::string s) {
         std::smatch pieces_match;
         while (std::regex_search(s, pieces_match, re)) {
-            CHECK(pieces_match.size() == 2);
             buf.push_back(pieces_match[1].str());
             s = pieces_match.suffix();
         }
@@ -132,7 +134,6 @@ std::string filter_force_commands(std::string cmd) {
 
 
 void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
-    auto print = zeroerr::getStderrPrinter();
     ss << replace_var(target[0]) << (multiple? "&": "") << ":";
     
     for (auto dep : dependencies) {
@@ -150,20 +151,13 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
         ShellInfo info;
         cmd = info.get_input_output(cmd);
         
-        std::string first_line_mkdir;
         std::string first_line_cd;
-        // if first line is cd, then cut to two parts
-        int p = cmd.find_first_not_of(" \t\v\n\r@-");
-        if (p < cmd.size()-1 && cmd[p] == 'c' && cmd[p+1] == 'd' && cmd[p+2] == ' ') {
-            int q = cmd.find_first_of('\n', p);
-            first_line_mkdir = cmd.substr(0, p) + "mkdir -p " + cmd.substr(p+3, q-(p+3));
-            first_line_cd = cmd.substr(0,q);
-            cmd = cmd.substr(q);
+        if (attrs.find("cd") != attrs.end()) {
+            first_line_cd = "mkdir -p " + attrs["cd"] + "\n" + attrs["cd"] + "\n";
         }
 
         std::stringstream s;
         s << "\n\t$(DEFAULT_PREACTION)";
-        s << first_line_mkdir;
         s << first_line_cd;
         for (auto name : info.input_files)
             s << std::endl << "\t$(call check_file_exist," << name << ")";
@@ -195,8 +189,6 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
 
 
 std::string Rule::gen(bool debug) {
-    auto print = zeroerr::getStderrPrinter();
-    CHECK(target.size() == 1);
     std::stringstream ss;
     
     auto vars = find_var(target[0]);
@@ -223,10 +215,14 @@ std::string Rule::gen(bool debug) {
     return ss.str();
 }
 
+
+
 void parser::Parse(std::string input) {
     yylex_init(&lexer);
+    lexer_buffer = input.c_str();
     umake_scan_string(input.c_str(), this);
     yyparse(lexer, this);
 }
 
 } // namespace umake
+

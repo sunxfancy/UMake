@@ -1,28 +1,12 @@
 add_rules("mode.debug", "mode.release")
 set_languages("c17", "c++20")
 
-package("zeroerr")
-    add_deps("cmake")
-    set_sourcedir(path.join(os.scriptdir(), "third-party", "zeroerr"))
-    on_install(function (package)
-        local configs = {}
-        table.insert(configs, "-DCMAKE_BUILD_TYPE=" .. (package:debug() and "Debug" or "Release"))
-        table.insert(configs, "-DBUILD_SHARED_LIBS=" .. (package:config("shared") and "ON" or "OFF"))
-        import("package.tools.cmake").install(package, configs)
-    end)
-    on_test(function (package)
-        assert(package:has_cxxincludes({"zeroerr.h"}))
-    end)
-package_end()
-
-add_requires("zeroerr")
 add_includedirs("src")
 
 target("umake")
     set_kind("binary")
     add_rules("lex", "yacc")
-    add_files("src/*.cpp","src/*.ll", "src/*.yy")
-    add_packages("zeroerr")
+    add_files("src/*.cpp", "src/*.ll", "src/*.yy")
 
 
 --
