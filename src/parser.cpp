@@ -1,25 +1,24 @@
 #include "parser.h"
 
+#include "bison.tab.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <regex>
 #include <sstream>
 #include <string>
-#include <regex>
-#include "bison.tab.hpp"
 
-extern int yylex_init(void** scanner);
-extern void umake_scan_string(const char* str, struct umake::parser* P);
+extern int  yylex_init(void **scanner);
+extern void umake_scan_string(const char *str, struct umake::parser *P);
 
-namespace umake
-{
-
+namespace umake {
 
 Rule::~Rule() {
     // delete info;
 }
 
-
-Rule::Rule(StringList* target, StringList* dependencies, StringList* order_only_dependencies, bool multiple, StringList* commands, StringMap* attrs) {
+Rule::Rule(StringList *target, StringList *dependencies,
+           StringList *order_only_dependencies, bool multiple,
+           StringList *commands, StringMap *attrs) {
     this->target = *target;
     delete target;
     if (dependencies != nullptr) {
@@ -41,11 +40,11 @@ Rule::Rule(StringList* target, StringList* dependencies, StringList* order_only_
     }
 }
 
-
-static std::vector<std::string> find_var(std::string target) {
+static std::vector<std::string>
+find_var(std::string target) {
     std::vector<std::string> vars;
-    std::smatch pieces_match;
-    static const std::regex var_regex("%\\(([a-zA-Z0-9\-_]+)\\)");
+    std::smatch              pieces_match;
+    static const std::regex  var_regex("%\\(([a-zA-Z0-9\-_]+)\\)");
     while (std::regex_search(target, pieces_match, var_regex)) {
         // CHECK(pieces_match.size() == 2);
         vars.push_back(pieces_match[1].str());
@@ -54,27 +53,30 @@ static std::vector<std::string> find_var(std::string target) {
     return vars;
 }
 
-static std::string replace_var(std::string target) {
-    std::string result;
-    std::smatch pieces_match;
+static std::string
+replace_var(std::string target) {
+    std::string             result;
+    std::smatch             pieces_match;
     static const std::regex var_regex("%\\(([a-zA-Z0-9\-_]+)\\)");
     std::string res = std::regex_replace(target, var_regex, "$($1_IT)");
-    if (res[res.length()-1] == '/') {
+    if (res[res.length() - 1] == '/') {
         // is a directory
         res += ".complete";
     }
     return res;
 }
 
-static std::string convert_double_dollar(std::string s) {
+static std::string
+convert_double_dollar(std::string s) {
     static const std::regex var_regex("\\$");
     return std::regex_replace(s, var_regex, "$$$$");
 }
 
 struct ShellInfo {
-    std::vector<std::string> input_files,output_files,input_dirs,output_dirs;
+    std::vector<std::string> input_files, output_files, input_dirs, output_dirs;
 
-    void append(std::vector<std::string>& buf, const std::regex& re, std::string s) {
+    void append(std::vector<std::string> &buf, const std::regex &re,
+                std::string s) {
         std::smatch pieces_match;
         while (std::regex_search(s, pieces_match, re)) {
             buf.push_back(pieces_match[1].str());
@@ -83,11 +85,13 @@ struct ShellInfo {
     }
 
     std::string get_input_output(std::string cmd) {
-        static const std::regex fi_regex("<FI:([^>]+)>"), fo_regex("<FO:([^>]+)>"), di_regex("<DI:([^>]+)>"), do_regex("<DO:([^>]+)>");
-        append(input_files,  fi_regex, cmd);
+        static const std::regex fi_regex("<FI:([^>]+)>"),
+            fo_regex("<FO:([^>]+)>"), di_regex("<DI:([^>]+)>"),
+            do_regex("<DO:([^>]+)>");
+        append(input_files, fi_regex, cmd);
         append(output_files, fo_regex, cmd);
-        append(input_dirs,   di_regex, cmd);
-        append(output_dirs,  do_regex, cmd);
+        append(input_dirs, di_regex, cmd);
+        append(output_dirs, do_regex, cmd);
 
         cmd = std::regex_replace(cmd, fi_regex, "$1");
         cmd = std::regex_replace(cmd, fo_regex, "$1");
@@ -101,26 +105,29 @@ struct ShellInfo {
     }
 };
 
-std::string trim(std::string s) {
+std::string
+trim(std::string s) {
     int p = s.find_first_not_of(" \t\v\n\r");
     int q = s.find_last_not_of(" \t\v\n\r");
     if (p == std::string::npos) {
         return "";
     }
-    return s.substr(p, q-p+1);
+    return s.substr(p, q - p + 1);
 }
 
-std::vector<std::string> split(std::string s) {
+std::vector<std::string>
+split(std::string s) {
     std::vector<std::string> result;
-    std::stringstream ss(s);
-    std::string item;
+    std::stringstream        ss(s);
+    std::string              item;
     while (std::getline(ss, item, '\n')) {
         result.push_back(trim(item));
     }
     return result;
 }
 
-std::string filter_force_commands(std::string cmd) {
+std::string
+filter_force_commands(std::string cmd) {
     std::vector<std::string> cmds = split(cmd);
 
     std::stringstream ss;
@@ -132,10 +139,10 @@ std::string filter_force_commands(std::string cmd) {
     return ss.str();
 }
 
+void
+Rule::gen_body(std::stringstream &ss, bool dd, bool debug) {
+    ss << replace_var(target[0]) << (multiple ? "&" : "") << ":";
 
-void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
-    ss << replace_var(target[0]) << (multiple? "&": "") << ":";
-    
     for (auto dep : dependencies) {
         ss << " " << replace_var(dep);
     }
@@ -150,10 +157,11 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
     for (auto cmd : commands) {
         ShellInfo info;
         cmd = info.get_input_output(cmd);
-        
+
         std::string first_line_cd;
         if (attrs.find("cd") != attrs.end()) {
-            first_line_cd = "mkdir -p " + attrs["cd"] + "\n" + attrs["cd"] + "\n";
+            first_line_cd =
+                "mkdir -p " + attrs["cd"] + "\n" + attrs["cd"] + "\n";
         }
 
         std::stringstream s;
@@ -164,10 +172,13 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
         for (auto name : info.input_dirs)
             s << std::endl << "\t$(call check_dir_exist," << name << ")";
         for (auto name : info.output_files)
-            s << std::endl << "\t$(call make_sure_parent_dir_exist," << name << ")";
+            s << std::endl
+              << "\t$(call make_sure_parent_dir_exist," << name << ")";
         for (auto name : info.output_dirs)
-            s << std::endl << "\t$(call make_sure_parent_dir_exist," << name << ")";
-        if (!debug) s << cmd;
+            s << std::endl
+              << "\t$(call make_sure_parent_dir_exist," << name << ")";
+        if (!debug)
+            s << cmd;
         else {
             s << filter_force_commands(cmd);
             for (auto name : info.output_files)
@@ -181,22 +192,25 @@ void Rule::gen_body(std::stringstream& ss, bool dd, bool debug) {
             s << std::endl << "\t$(call check_dir_exist," << name << ")";
         s << std::endl << "\t$(DEFAULT_ACTION)";
 
-        if (dd) ss << convert_double_dollar(s.str());
-        else ss << s.str();
+        if (dd)
+            ss << convert_double_dollar(s.str());
+        else
+            ss << s.str();
     }
     ss << std::endl << std::endl;
 }
 
-
-std::string Rule::gen(bool debug) {
+std::string
+Rule::gen(bool debug) {
     std::stringstream ss;
-    
+
     auto vars = find_var(target[0]);
 
-    static int i = 0;
-    bool use_loop = vars.size() > 0;
+    static int i        = 0;
+    bool       use_loop = vars.size() > 0;
     if (use_loop) {
-        ss << "define " << "GENERATE_" << (++i) << std::endl;
+        ss << "define "
+           << "GENERATE_" << (++i) << std::endl;
     }
     gen_body(ss, use_loop, debug);
     if (use_loop) {
@@ -215,9 +229,8 @@ std::string Rule::gen(bool debug) {
     return ss.str();
 }
 
-
-
-void parser::Parse(std::string input) {
+void
+parser::Parse(std::string input) {
     yylex_init(&lexer);
     lexer_buffer = input.c_str();
     umake_scan_string(input.c_str(), this);
@@ -225,4 +238,3 @@ void parser::Parse(std::string input) {
 }
 
 } // namespace umake
-

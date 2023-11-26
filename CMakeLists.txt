@@ -10,10 +10,8 @@ FLEX_TARGET(Scanner src/lex.ll ${CMAKE_CURRENT_BINARY_DIR}/lex.cpp DEFINES_FILE 
 BISON_TARGET(Parser src/bison.yy ${CMAKE_CURRENT_BINARY_DIR}/bison.cpp DEFINES_FILE "${CMAKE_CURRENT_BINARY_DIR}/bison.tab.hpp")
 ADD_FLEX_BISON_DEPENDENCY(Scanner Parser)
 
-include_directories(src ${CMAKE_CURRENT_BINARY_DIR} third-party/zeroerr/include)
+include_directories(src ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(UMake src/main.cpp src/parser.cpp ${CMAKE_CURRENT_BINARY_DIR}/lex.cpp ${CMAKE_CURRENT_BINARY_DIR}/bison.cpp)
-
-add_subdirectory(third-party/zeroerr)
 
 target_link_libraries(UMake zeroerr)
