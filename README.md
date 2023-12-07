@@ -1,5 +1,7 @@
 # UMake
 
+[![English Readme](https://img.shields.io/badge/English-Readme-blue)](./README.en.md)
+
 这是一个Makefile的自动生成工具，用来创建一些较为复杂的自动化测试脚本，主要特性：
 
 1. 支持自动生成基础的Makefile框架，以及导入自己编写的Makefile框架
