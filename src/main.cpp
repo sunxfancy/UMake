@@ -46,12 +46,20 @@ check_args(int argc, char **argv) {
     }
 }
 
+extern const char* templateStr;
+
 int
 main(int argc, char **argv) {
     check_args(argc, argv);
 
     std::cout << "umake " << argv[1] << std::endl;
     auto [header, src, library] = load_file(argv[1]);
+
+    if (src == "" && library == "") {
+        src = header;
+        header = "";
+        library = templateStr;
+    }
 
     umake::parser parser;
     parser.Parse(src);

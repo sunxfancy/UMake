@@ -22,6 +22,7 @@ using std::make_pair;
     std::vector<std::string>* ids;
     std::map<std::string, std::string>* attrs;
     struct umake::Rule* rule;
+    struct umake::Element* ele;
     char *str;
     std::string* string;
     bool b;
@@ -38,7 +39,7 @@ using std::make_pair;
 %type<b> and
 %type<ids> IDs shell_blocks
 %type rules
-%type<rule> rule    
+%type<ele> rule    
 %type<attrs> attrs attributes
 %type<string> shell_block
 %start rules 
@@ -46,8 +47,8 @@ using std::make_pair;
 %%
 
 rules: rules rule empty_lines { P->add($2); }
-      | empty_lines rule empty_lines  { P->add($2); }
-      ;
+     | empty_lines rule empty_lines  { P->add($2); }
+     ;
 
 empty_lines: | empty_lines '\n' ;
 
@@ -72,6 +73,8 @@ rule: attrs IDs and ':' IDs '\n'  { $$ = new umake::Rule($2, $5, nullptr, $3, nu
     | attrs IDs and ':' IDs  '|' IDs '\n'  { $$ = new umake::Rule($2, $5, $7, $3, nullptr, $1);  }
     | attrs IDs and ':' IDs shell_blocks { $$ = new umake::Rule($2, $5, nullptr, $3, $6, $1);  }
     | attrs IDs and ':' IDs  '|' IDs shell_blocks { $$ = new umake::Rule($2, $5, nullptr, $3, $8, $1);  }
+    | ID '=' IDs '\n' { $$ = new umake::Assignment($1, "=", $3); }
+    | ID ':' '=' IDs '\n' { $$ = new umake::Assignment($1, ":=", $4); }
     ;
 
 IDs: IDs ID { $$->push_back(string($2)); free($2); }

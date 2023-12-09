@@ -228,6 +228,61 @@ build/instrumented: $(TMP_PATH)/source/.complete
 	$(DEFAULT_ACTION)
 
 
+source:
+	$(DEFAULT_PREACTION)
+	$(call make_sure_parent_dir_exist,source.dir/1.zip)
+	$(call make_sure_parent_dir_exist,source.dir/2.zip)
+	touch source.dir/1.zip
+	touch source.dir/2.zip
+	$(call check_file_exist,source.dir/1.zip)
+	$(call check_file_exist,source.dir/2.zip)
+	$(DEFAULT_ACTION)
+
+
+$(TMP_PATH)/source/.complete: source
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$(BUILD_PATH)/source.dir/1.zip)
+	$(call make_sure_parent_dir_exist,$(TMP_PATH)/source)
+	mkdir -p $(TMP_PATH)/source
+	$(call check_dir_exist,$(TMP_PATH)/source)
+	$(DEFAULT_ACTION)
+
+
+hotlist/%: perf/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$(BUILD_PATH)/$< )
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+profdata: build/instrumented
+	$(DEFAULT_PREACTION)
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+perf/%: build/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$C/bin/clang$V)
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+bench/%: build/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$C/bin/clang$V)
+	$(call make_sure_parent_dir_exist,$@)
+	touch $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
 else
 .PRECIOUS: hotlist/% perf/%
 
@@ -262,6 +317,65 @@ $(foreach LTO_IT, $(LTO),$(foreach FDO_IT, $(FDO),$(foreach VAR_IT, $(VAR),$(eva
 build/instrumented: $(TMP_PATH)/source/.complete
 	$(DEFAULT_PREACTION)
 	mkdir -p $C/bin && touch $C/bin/clang
+	$(DEFAULT_ACTION)
+
+
+source:
+	$(DEFAULT_PREACTION)
+	$(call make_sure_parent_dir_exist,source.dir/1.zip)
+	$(call make_sure_parent_dir_exist,source.dir/2.zip)
+	wget google.com -O source.dir/1.zip
+	wget github.com -O source.dir/2.zip
+	$(call check_file_exist,source.dir/1.zip)
+	$(call check_file_exist,source.dir/2.zip)
+	$(DEFAULT_ACTION)
+
+
+$(TMP_PATH)/source/.complete: source
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$(BUILD_PATH)/source.dir/1.zip)
+	$(call make_sure_parent_dir_exist,$(TMP_PATH)/source)
+	cd $(TMP_PATH)
+	mkdir -p  $(TMP_PATH)/source && cat $(BUILD_PATH)/source.dir/1.zip > $(TMP_PATH)/source/1.c
+	$(call check_dir_exist,$(TMP_PATH)/source)
+	$(DEFAULT_ACTION)
+
+
+hotlist/%: perf/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$(BUILD_PATH)/$< )
+	$(call make_sure_parent_dir_exist,$@)
+	mkdir -p hotlist
+	cat $(BUILD_PATH)/$<  | awk '{print "hotlist gen from:\n $$1"}' > $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+profdata: build/instrumented
+	$(DEFAULT_PREACTION)
+	$(call make_sure_parent_dir_exist,$@)
+	echo "prof data gen" > $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+perf/%: build/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$C/bin/clang$V)
+	$(call make_sure_parent_dir_exist,$@)
+	mkdir -p perf
+	cat $C/bin/clang$V > $@
+	$(call check_file_exist,$@)
+	$(DEFAULT_ACTION)
+
+
+bench/%: build/%
+	$(DEFAULT_PREACTION)
+	$(call check_file_exist,$C/bin/clang$V)
+	$(call make_sure_parent_dir_exist,$@)
+	mkdir -p bench
+	cat $C/bin/clang$V > $@
+	$(call check_file_exist,$@)
 	$(DEFAULT_ACTION)
 
 

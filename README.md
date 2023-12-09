@@ -61,7 +61,6 @@ perf/%: build/%              ## Run perf record
 bench/%: build/%             ## Run perf stat
 	mkdir -p bench
 	cat <FI:$C/bin/clang$V> > <FO:$@>
-  
 ```
 
 ## 如何使用
@@ -70,17 +69,15 @@ bench/%: build/%             ## Run perf stat
 
 使用 `wget` 下载 `get.sh` 脚本执行
 ```bash
-wget https://fastly.jsdelivr.net/gh/sunxfancy/UMake@master/etc/get.sh | bash
+wget https://fastly.jsdelivr.net/gh/sunxfancy/UMake@master/etc/get.sh -O - | bash
 ```
 
 使用 `curl` 下载 `get.sh` 脚本执行
 ```bash
-curl https://fastly.jsdelivr.net/gh/sunxfancy/UMake@master/etc/get.sh | bash
+curl -fsSL https://fastly.jsdelivr.net/gh/sunxfancy/UMake@master/etc/get.sh | bash
 ```
 
 使用 `Powershell` 下载 `get.ps1` 脚本执行
 ```powershell
-Invoke-WebRequest -Uri https://fastly.jsdelivr.net/gh/sunxfancy/UMake@master/etc/get.ps1
+Invoke-Expression (Invoke-WebRequest -Uri https://fastly.jsdelivr.net/gh/sunxfancy/UMake@master/etc/get.ps1 -UseBasicParsing).Content
 ```
-
-

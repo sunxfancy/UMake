@@ -7,7 +7,9 @@ target("umake")
     set_kind("binary")
     add_rules("lex", "yacc")
     add_files("src/*.cpp", "src/*.ll", "src/*.yy")
-
+    on_config(function(target)
+        
+    end)
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io

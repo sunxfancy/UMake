@@ -14,12 +14,12 @@ char* maketoken(const char* data, int len);
 %}
 
 
-ID [a-zA-Z0-9\-/_%$()\.]*
+ID [a-zA-Z0-9\-/_%$()\.\+]*
 
 %%
 
 "#".*               ; 
-\n|\r\n             return '\n'; 
+\n                  return '\n'; 
 {ID}                SAVE_TOKEN; return ID;
 \"([^\"]|\\.)+\"    SAVE_TOKEN; return STRING;
 "<FI"[^>\n>]*">"    SAVE_TOKEN; return FILE_IN;

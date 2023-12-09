@@ -229,6 +229,16 @@ Rule::gen(bool debug) {
     return ss.str();
 }
 
+std::string Assignment::gen(bool debug) {
+    std::stringstream ss;
+    ss << key << " " << assign << " ";
+    for (auto v : value) {
+        ss << v << " ";
+    }
+    ss << "\n";
+    return ss.str();
+}
+
 void
 parser::Parse(std::string input) {
     yylex_init(&lexer);
